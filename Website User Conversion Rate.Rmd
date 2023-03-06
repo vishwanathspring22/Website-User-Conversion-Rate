@@ -1,0 +1,306 @@
+---
+title: "Website User Conversion Rate"
+date: "25/05/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+#install.packages("tidyverse")
+#install.packages("broom")
+#install.packages("pROC")
+#install.packages("dplyr")
+#install.packages("forestmangr")
+#install.packages("ggplot2")
+#install.packages("ggmosaic")
+#install.packages("ggpubr")
+```
+ <font size="1"> Install the packages</font>
+
+
+```{r}
+library(tidyverse)
+library(forestmangr)
+library(broom)
+library(dplyr)
+library(pROC)
+library(ggplot2)
+library(ggmosaic)
+library(ggpubr)
+```
+ <font size="1"> Load the packages</font>
+
+
+#  Question-1) Read and inspect the data set. Provide a descriptive analysis for each of the variables in the data set.
+
+```{r}
+ecommerce <- read.csv("ecommerce.csv")
+summary(ecommerce)
+glimpse(ecommerce)
+```
+<font size="1"> Import the data set and execute summary and glimpse</font>
+
+
+<font size="2"> There are 6 variables in the dataset and target variable is conversion</font>
+<font size="2"> The target variable is binary so we proceed with logistic regression</font>
+
+#  Question-2) Build a simple logistic regression model of conversion on discount.Call this model m1. Comment on the coefficient estimate of discountyes. What is the sign of the coefficient? Is the effect statistically significant?
+
+```{r}
+ecommerce <- ecommerce %>% mutate(conversion = factor(conversion), discount = factor(discount), source = factor(source), country = factor(country))
+```
+<font size="1"> Categorical variables converted into factor form for modelling</font>
+
+```{r}
+m1 <- glm(conversion ~ discount, data = ecommerce, family = binomial)
+```
+
+```{r}
+summary(m1)
+```
+
+
+<font size="2"> Co-efficient of discountyes is positive and it is statistically significant as p-value is less than 0.05</font>
+
+
+# Question-3) Calculate the odds ratio for discountyes. What does this mean?
+```{r}
+exp(coef(m1))
+```
+<font size="2"> The odds ratio of discount yes is 3.006872</font>
+
+# Question-4) Calculate the 95% confidence interval for the odds ratio for discountyes. What does this mean?
+```{r}
+exp(confint(m1))
+```
+<font size="2"> The odds ratio for the discountyes is to be in the range of [2.80, 3.22]</font>
+
+
+# Question-5) Generate a double-decker mosaic plot (using the ggmosaic package) to visualise the count of the combinations of the following variables: discount (on x-axis), conversion (as fill colour), and source (as facets). Use the plot to describe whether (and how) the effect of discount on conversion is different for the three source channels.
+
+```{r}
+ggplot(data = ecommerce) + 
+  geom_mosaic(aes( 
+    x = product(discount),  
+    fill = conversion), 
+    offset = 0.02,  
+    divider = ddecker()) + 
+  facet_grid(~source,
+             scales = "free") + 
+  theme_pubr() + 
+  theme(axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.text.x = element_text(angle = 90)) + 
+  labs(x = "", y = "") 
+```
+
+
+<font size="2"> # The conversion through source direct and search is higher when discount is given</font>
+
+
+# Question-6) Build a logistic regression model that predicts conversion from discount and source. Call this model m2. Comment on the coefficient estimates of sourcedirect and sourcesearch.
+
+```{r}
+m2 <- glm(conversion ~ discount + source, data = ecommerce, family = binomial)
+summary(m2)
+```
+<font size="2">Both the variables asked are statistically significant and both of them have positive co-efficient</font>
+
+
+# Question-7) Calculate the odds ratios for sourcedirect and sourcesearch. What do these mean? 
+
+```{r}
+exp(coef(m2))
+```
+
+<font size="2">The odds ratio of source direct is 2.0023 and source search is 2.0884</font>
+
+# Question-8) Build a logistic regression model that predicts conversion from discount and source and also includes their interaction. Call this model m3. Comment on the coefficient estimates of the interaction terms 
+
+```{r}
+m3 <- glm(conversion~source + discount + discount:source, data = ecommerce, family = binomial)
+summary(m3)
+```
+
+<font size="2">From the model source yes has negative co-efficient comparing to model-2 and the significant variables are source direct and interaction between source search and discount yes</font>
+
+
+# Question-9) Calculate the 95% confidence intervals for the odds ratios for the interaction terms. What do these mean?
+```{r}
+exp(coef(m3))
+exp(confint(m3))
+```
+<font size="2">The range of CI of source search and discount yes interaction is high and the odds ratio of this interaction is lying in the range of [2.765, 4.956]</font>
+
+
+# Question-10) Build a logistic regression model that predicts conversion from all available variables in the data set. This model should also include an interaction of the discount and source variables. Call this model m4. Which variables are significant at the 95% level? Including all the variables and interaction of discount and source for model-4
+
+```{r}
+m4 <- glm(conversion ~ discount + source + visit_duration + total_pages_visited + country + discount:source, data = ecommerce, family = binomial)
+summary(m4)
+```
+<font size="2">From the model, the statistically significant variables are source direct and interaction between source search and discount yes and the significant values are having positive co-efficient</font>
+
+```{r}
+exp(coef(m4))
+exp(confint(m4))
+```
+
+<font size ="2">Like the previous model the odds ratio is highest is for the interaction between discount yes and source search which is 3.91 and the range is in between [2.87, 5.34]</font>
+
+# Question-11) Calculate the correlation between the two numerical variables in the dataset (total_pages_visited and visit_duration). Comment on the result. How may this affect m4?
+
+
+```{r}
+cor.test(ecommerce$total_pages_visited, ecommerce$visit_duration, method ="pearson")
+```
+
+<font size="2">The correlation between the two variables is almost 1 and when one is increased the other will also increase</font>
+
+
+# Question-12) Build another logistic regression model from m4 by removing the visit_duration variable. Call this model m5. How has the effect of total_pages_visited changed compared to m4?
+
+```{r}
+m5 <- glm(conversion ~ discount + source + total_pages_visited + country + discount:source, data = ecommerce,  family = binomial)
+summary(m5)
+```
+
+<font size="2">The number of significant variales increased and since the visit_pages was removed, the highly correlated variable to this total_duration_time has the significance</font>
+
+<font size="2">Source search , total_pages_visited and interaction between discount yes and source search and the co-coefficients are positive< font size="2</font>
+
+```{r}
+exp(coef(m5))
+exp(confint(m5))
+```
+<font size ="2" >The interaction between discount yes and source search is having the hightest odds ratio and lies in the range between [2.86, 5.32]</font>
+
+# Question-13) Make a plot that visualises the odds ratios (as points) of the variables in m5 as well as their confidence intervals (as error bars).
+
+```{r}
+tidy(m5) %>% 
+  mutate(exp_beta_llci = exp(confint(m5))[, 1], 
+         exp_beta = exp(estimate), 
+         exp_beta_ulci = exp(confint(m5))[, 2]) %>% 
+  select(term, estimate, exp_beta_llci, exp_beta, exp_beta_ulci) %>% 
+  ggplot(aes(x = term, 
+             y = exp_beta,
+             ymin = exp_beta_llci,
+             ymax = exp_beta_ulci)) +
+  geom_point(size = 4) + 
+  geom_errorbar(width = 0.25) +
+
+  geom_hline(yintercept = 1, linetype = "dashed", 
+                    size = 1, color = "dodgerblue") + 
+  labs(title = "95% CI: Pass sign up odds by factor",
+       x = NULL,
+       y = "Likehood by Factor (odds ratio, main effect)") + 
+  coord_flip() + 
+  theme_pubr()
+
+```
+
+
+<font size ="2">Discount yes and source search interaction has the highest odds ratio]</font>
+
+# Question-14) Use model m5 to predict the conversion probabilities for each user in the data set. Store these probabilities in the data set, in a variable called base_prob. What is the mean value of base_prob?
+
+```{r}
+ecommerce$base_probability <- predict(
+  m5,
+  ecommerce,
+  type = "response"
+)
+
+head(ecommerce)
+```
+
+```{r}
+mean(ecommerce$base_probability)
+```
+
+<font size ="2">The mean value of the base probability is 0.1759163</font>
+
+# Question-15) Calculate an indicator variable for whether individuals will convert or not, based on their predicted probabilities from the previous task, using a threshold value of 0.5. Call this variable pred_conversion. How many users so we predict to convert?
+
+```{r}
+ecommerce$pred_conversion <- 1 * (ecommerce$base_probability >= 0.5)
+head(ecommerce)
+```
+
+```{r}
+table(ecommerce$conversion, ecommerce$pred_conversion)
+```
+
+<font size="2">The true positives are 908 and the people getting converted into conversion is 908 and not getting converted is 20,190</font>
+
+# Question-16) What is the accuracy or hit rate?
+```{r}
+
+(20190+908)/(20190+450+908+3498)
+```
+<font size="2"> The accuracy is 84.23%</font>
+
+# Question-17) What is the area under the curve? 
+
+```{r}
+roccurve <- roc(ecommerce$conversion, 
+              ecommerce$base_probability) 
+
+
+roccurve$auc
+
+
+ggroc(roccurve, 
+      color = "dodgerblue", 
+      size = 1,
+      legacy.axes = T) + 
+  geom_segment(x = 0, y = 0, xend = 1, yend = 1, linetype = 2, alpha  =  0.01) + 
+  theme_pubr() +
+  labs(title = sprintf("ROC Curve (AUC = %.5f)", roccurve$auc), 
+       x = "1 - Specificity (or fpr)", 
+       y = "Sensitivity (or tpr)")
+```
+
+
+<font size="2">The area under the curve is 77.49%</font>
+
+# Question-18) Predict new probabilities under a hypothetical scenario that the values variable total_pages_visited were increased by one unit (i.e., one page) for all users. Store these probabilities in the data set, in a variable called new_prob. What is the mean value of new_prob?
+
+```{r}
+ecommerce_new <- ecommerce
+ecommerce_new$total_pages_visited <- ecommerce_new$total_pages_visited+1
+ecommerce_new$new_prob <- predict(m5, ecommerce_new, type = "response")
+```
+
+```{r}
+mean(ecommerce_new$new_prob)
+mean(ecommerce_new$base_probability)
+```
+<font size="2">The mean value of new probabilities is 0.23</font>
+
+# Question-19) Calculate the lift metric for the hypothetical scenario from the previous task (i.e., Task 18)
+
+```{r}
+(mean(ecommerce_new$new_prob) - mean(ecommerce_new$base_probability))/mean(ecommerce_new$base_probability)
+```
+
+<font size="2">The lift metric ratio is 31%</font>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
